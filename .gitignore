@@ -1,2 +1,39 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+flashdb
+server/flashdb
+
+# Go workspace
+go.work
+
+# Data files
+data.json
+wal.log
+wal.log.old
+
+# Environment
+.env
+.env.local
+
+# Node
+node_modules/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Worktrees
 .worktrees/
 worktrees/

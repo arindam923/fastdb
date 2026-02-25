@@ -1,0 +1,27 @@
+builds:
+  - id: flashdb
+    dir: server
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    binary: flashdb
+
+archives:
+  - id: default
+    format: tar.gz
+    files:
+      - README.md
+      - LICENSE
+
+release:
+  github:
+    owner: arindam923
+    name: flashdb
+  draft: false
+  prerelease: auto

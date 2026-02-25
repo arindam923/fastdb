@@ -1,0 +1,32 @@
+name: Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          
+      - name: Download Go modules
+        working-directory: server
+        run: go mod download
+        
+      - name: Run Go tests
+        working-directory: server
+        run: go test -v ./...
+        
+      - name: Build Go binary
+        working-directory: server
+        run: go build -o flashdb .
