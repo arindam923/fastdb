@@ -120,7 +120,7 @@ export function useMutation(
           return await casRetry(
             db,
             key,
-            valueOrUpdater,
+            valueOrUpdater as (current: FlashValue) => FlashValue,
             maxRetries,
           );
         } else {

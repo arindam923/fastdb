@@ -149,7 +149,9 @@ import { FlashDB, FlashDBProvider, useValue, useMutation } from '@arindam923/fla
 
 const db = new FlashDB({
   url: 'ws://localhost:8080/ws',
-  token: 'your-jwt-token-from-flashdb-data/flashdb.yaml'
+  // Option 1: Pass JWT secret directly - SDK generates token automatically
+  jwtSecret: 'your-jwt-secret-from-flashdb-data/flashdb.yaml',
+  jwtExpiresIn: 3600, // optional, token expiry in seconds
 });
 
 function App() {
@@ -171,6 +173,17 @@ function Counter() {
   );
 }
 ```
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `url` | string | - | WebSocket URL |
+| `token` | string | - | Pre-generated JWT token |
+| `jwtSecret` | string | - | Plain text JWT secret (SDK auto-generates token) |
+| `jwtExpiresIn` | number | 3600 | Token expiry in seconds |
+| `reconnectDelay` | number | 1000 | Initial reconnect delay (ms) |
+| `maxReconnectDelay` | number | 30000 | Max reconnect delay (ms) |
 
 ### Hooks
 

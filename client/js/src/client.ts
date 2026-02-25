@@ -49,6 +49,8 @@ type PendingResolve = (msg: OutMessage) => void;
 export interface FlashDBOptions {
   url: string;
   token?: string;
+  jwtSecret?: string;
+  jwtExpiresIn?: number;
   reconnectDelay?: number;
   maxReconnectDelay?: number;
 }
@@ -57,6 +59,8 @@ export class FlashDB {
   private ws: WebSocket | null = null;
   private url: string;
   private token: string;
+  private jwtSecret: string;
+  private jwtExpiresIn: number;
   private reconnectDelay: number;
   private maxReconnectDelay: number;
   private currentDelay: number;
@@ -81,6 +85,8 @@ export class FlashDB {
   constructor(options: FlashDBOptions) {
     this.url = options.url;
     this.token = options.token ?? "";
+    this.jwtSecret = options.jwtSecret ?? "";
+    this.jwtExpiresIn = options.jwtExpiresIn ?? 3600;
     this.reconnectDelay = options.reconnectDelay ?? 1000;
     this.maxReconnectDelay =
       options.maxReconnectDelay ?? 30000;
@@ -88,14 +94,67 @@ export class FlashDB {
     this.connect();
   }
 
-  private connect() {
+  private async generateToken(): Promise<string> {
+    if (!this.jwtSecret) return "";
+
+    const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+    const payload = btoa(
+      JSON.stringify({
+        exp: Math.floor(Date.now() / 1000) + this.jwtExpiresIn,
+        iat: Math.floor(Date.now() / 1000),
+      }),
+    );
+
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(this.jwtSecret);
+    const messageData = encoder.encode(`${header}.${payload}`);
+
+    const key = await crypto.subtle.importKey(
+      "raw",
+      keyData,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+
+    const signature = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      messageData,
+    );
+
+    const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+    return `${header}.${payload}.${signatureBase64}`;
+  }
+
+  private async connectWithJwt() {
     if (this.destroyed) return;
+    
+    const token = await this.generateToken();
+    const wsUrl = token
+      ? `${this.url}${this.url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`
+      : this.url;
+    this.ws = new WebSocket(wsUrl);
+    this.setupWsHandlers();
+  }
+
+  private connect() {
+    if (this.jwtSecret) {
+      this.connectWithJwt();
+      return;
+    }
+    
+    if (this.destroyed) return;
+    
     const wsUrl = this.token
       ? `${this.url}${this.url.includes("?") ? "&" : "?"}token=${encodeURIComponent(this.token)}`
       : this.url;
     this.ws = new WebSocket(wsUrl);
+    this.setupWsHandlers();
+  }
 
-    this.ws.onopen = () => {
+  private setupWsHandlers() {
+    this.ws!.onopen = () => {
       console.log("[FlashDB] connected");
       this.connected = true;
       this.currentDelay = this.reconnectDelay;
@@ -112,7 +171,7 @@ export class FlashDB {
       }
     };
 
-    this.ws.onmessage = (e) => {
+    this.ws!.onmessage = (e) => {
       let msg: OutMessage;
       try {
         msg = JSON.parse(e.data);
@@ -122,7 +181,7 @@ export class FlashDB {
       this.handleMessage(msg);
     };
 
-    this.ws.onclose = () => {
+    this.ws!.onclose = () => {
       this.connected = false;
       for (const cb of this.onDisconnectCbs) {
         cb();
@@ -131,7 +190,8 @@ export class FlashDB {
         console.log(
           `[FlashDB] disconnected, reconnecting in ${this.currentDelay}ms`,
         );
-        setTimeout(() => this.connect(), this.currentDelay);
+        const reconnect = this.jwtSecret ? () => this.connectWithJwt() : () => this.connect();
+        setTimeout(reconnect, this.currentDelay);
         this.currentDelay = Math.min(
           this.currentDelay * 2,
           this.maxReconnectDelay,
@@ -139,7 +199,7 @@ export class FlashDB {
       }
     };
 
-    this.ws.onerror = (err) => {
+    this.ws!.onerror = (err) => {
       console.error("[FlashDB] ws error", err);
     };
   }
