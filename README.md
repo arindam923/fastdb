@@ -2,6 +2,27 @@
 
 A realtime key-value database with WebSocket API, built in Go. Perfect for building collaborative applications, live dashboards, and real-time features.
 
+## Download
+
+### macOS
+```bash
+curl -L https://github.com/arindam923/flashdb/releases/latest/download/flashdb_darwin_amd64.tar.gz | tar xz
+./flashdb
+```
+
+### Linux
+```bash
+curl -L https://github.com/arindam923/flashdb/releases/latest/download/flashdb_linux_amd64.tar.gz | tar xz
+./flashdb
+```
+
+### Windows (PowerShell)
+```powershell
+Invoke-WebRequest -Uri "https://github.com/arindam923/flashdb/releases/latest/download/flashdb_windows_amd64.zip" -OutFile flashdb.zip
+Expand-Archive flashdb.zip -DestinationPath .
+.\flashdb.exe
+```
+
 ## Features
 
 - **Realtime Subscriptions** - Subscribe to key changes and receive instant updates
@@ -13,29 +34,54 @@ A realtime key-value database with WebSocket API, built in Go. Perfect for build
 
 ## Quick Start
 
-### Running with Docker
-
 ```bash
-docker-compose up -d
+# Run with defaults (auto-generates JWT secret)
+./flashdb
+
+# Custom port
+./flashdb --port 3000
+./flashdb -p 3000
+
+# Custom data directory (for production)
+./flashdb --data-dir /var/lib/flashdb
+
+# Show all options
+./flashdb --help
 ```
 
-### Running from Source
+On first run, FlashDB creates a config file at `./flashdb-data/flashdb.yaml` with your JWT secret.
+
+## Configuration
+
+### CLI Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--port` | `-p` | 8080 | Server port |
+| `--host` | `-h` | 0.0.0.0 | Bind address |
+| `--data-dir` | `-d` | ./flashdb-data | Data directory |
+| `--jwt-secret` | `-j` | (auto-generate) | JWT signing secret |
+| `--config` | `-c` | - | Config file path |
+| `--persist-interval` | - | 5s | Persist interval |
+| `--log-level` | - | info | Log level |
+
+### Environment Variables
+
+All CLI flags can also be set via environment variables:
 
 ```bash
-cd server
-go build -o flashdb .
-JWT_SECRET=your-secret-key ./flashdb
+PORT=3000 DATA_DIR=/var/lib/flashdb ./flashdb
 ```
 
-The server starts on `http://localhost:8080`.
+## WebSocket Connection
 
-### WebSocket Connection
-
-Connect to the WebSocket endpoint:
+Connect to the WebSocket endpoint using the JWT token from your config file:
 
 ```
 ws://localhost:8080/ws?token=<JWT_TOKEN>
 ```
+
+The JWT token is saved in `flashdb-data/flashdb.yaml` on first run.
 
 ## API
 
@@ -93,17 +139,17 @@ When a subscribed key changes, the server pushes:
 Install:
 
 ```bash
-npm install @arindam923/flashdb-client
+npm install @arindam923/flashdb
 ```
 
 ### Usage
 
 ```tsx
-import { FlashDB, FlashDBProvider, useValue, useMutation } from '@arindam923/flashdb-client';
+import { FlashDB, FlashDBProvider, useValue, useMutation } from '@arindam923/flashdb';
 
 const db = new FlashDB({
   url: 'ws://localhost:8080/ws',
-  token: 'your-jwt-token'
+  token: 'your-jwt-token-from-flashdb-data/flashdb.yaml'
 });
 
 function App() {
@@ -133,13 +179,19 @@ function Counter() {
 - `useConnection()` - Track connection state
 - `useOptimisticValue(key)` - Instant local updates
 
-## Environment Variables
+## Running with Docker
 
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | 8080 | Server port |
-| `JWT_SECRET` | - | Required. Secret for JWT validation |
-| `PERSIST_INTERVAL` | 5s | How often to persist to disk |
+```bash
+docker-compose up -d
+```
+
+## Running from Source
+
+```bash
+cd server
+go build -o flashdb .
+./flashdb
+```
 
 ## Architecture
 
@@ -147,6 +199,7 @@ function Counter() {
 flashdb/
 ├── server/           # Go server
 │   ├── main.go       # Entry point
+│   ├── config.go     # CLI & config
 │   ├── hub.go        # WebSocket hub & message handling
 │   └── store.go      # Sharded in-memory store with WAL
 ├── client/js/        # React/TypeScript SDK
