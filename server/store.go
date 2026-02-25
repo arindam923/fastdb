@@ -9,11 +9,12 @@ import (
 	"time"
 )
 
-const (
-	persistFile   = "data.json"
-	walFile       = "wal.log"
-	walBufferSize = 64 * 1024
+var (
+	persistFile = "data.json"
+	walFile     = "wal.log"
 )
+
+const walBufferSize = 64 * 1024
 
 type WalEntryType byte
 
@@ -150,7 +151,10 @@ func (w *Wal) Truncate() error {
 	return nil
 }
 
-func NewStore() *Store {
+func NewStore(dataDir string) *Store {
+	persistFile = dataDir + "/data.json"
+	walFile = dataDir + "/wal.log"
+
 	s := &Store{}
 
 	for i := range s.shards {

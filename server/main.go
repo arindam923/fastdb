@@ -1,52 +1,66 @@
 package main
 
 import (
-	"log"
 	"net/http"
-	"os"
 	"time"
+
+	"k8s.io/klog/v2"
+)
+
+var (
+	cfg *Config
+	db  *Store
+	hub *Hub
 )
 
 func main() {
+	cfg = ParseAndValidate()
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	if err := ensureConfig(cfg); err != nil {
+		klog.Exitf("Failed to initialize config: %v", err)
 	}
 
-	db := NewStore()
+	jwtSecret = cfg.JWTSecret
+
+	db = NewStore(cfg.DataDir)
+
 	persistInterval := 5 * time.Second
-	if p := os.Getenv("PERSIST_INTERVAL"); p != "" {
-		if d, err := time.ParseDuration(p); err == nil {
+	if cfg.PersistInterval != "" {
+		if d, err := time.ParseDuration(cfg.PersistInterval); err == nil {
 			persistInterval = d
 		}
 	}
 	db.StartAutoPersist(persistInterval)
-	hub := NewHub(db)
+
+	hub = NewHub(db)
 	go hub.Run()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", hub.HandleWS)
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"status":"ok"}`))
-	})
+	mux.HandleFunc("/health", handleHealth)
+	mux.HandleFunc("/get/", handleGet)
 
-	// REST fallback for simple reads
-	mux.HandleFunc("/get/", func(w http.ResponseWriter, r *http.Request) {
-		key := r.URL.Path[len("/get/"):]
-		val, version, ok := db.Get(key)
-		if !ok {
-			http.Error(w, `{"error":"not found"}`, 404)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"key":"` + key + `","version":` + itoa(version) + `,"value":` + string(val) + `}`))
-	})
-
-	log.Printf("⚡ FlashDB listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {
-		log.Fatal(err)
+	addr := cfg.Host + ":" + cfg.Port
+	klog.Infof("⚡ FlashDB listening on %s", addr)
+	klog.Infof("📁 Data directory: %s", cfg.DataDir)
+	if err := http.ListenAndServe(addr, corsMiddleware(mux)); err != nil {
+		klog.Fatal(err)
 	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(`{"status":"ok"}`))
+}
+
+func handleGet(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Path[len("/get/"):]
+	val, version, ok := db.Get(key)
+	if !ok {
+		http.Error(w, `{"error":"not found"}`, 404)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"key":"` + key + `","version":` + itoa(version) + `,"value":` + string(val) + `}`))
 }
 
 func corsMiddleware(next http.Handler) http.Handler {

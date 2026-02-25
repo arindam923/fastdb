@@ -1,11 +1,25 @@
 {
-  "name": "@arindam923/flashdb-client",
-  "version": "0.1.0",
-  "description": "Realtime key-value database with WebSocket API",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "name": "@arindam923/flashdb",
+  "version": "1.0.0",
+  "description": "Realtime key-value database with WebSocket API and React SDK",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    }
+  },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",
