@@ -1,231 +1,333 @@
 # FlashDB
 
-A realtime key-value database with WebSocket API, built in Go. Perfect for building collaborative applications, live dashboards, and real-time features.
+**FlashDB** is a lightweight **real-time key-value database with a WebSocket API**, designed for building collaborative applications, live dashboards, and real-time features.
 
-## Download
+It combines **in-memory performance**, **versioned updates**, and **push-based subscriptions** so clients can react instantly to data changes.
 
-### macOS
+FlashDB is ideal for applications where **state synchronization between multiple clients** is critical.
+
+---
+
+# Why FlashDB?
+
+Modern applications often need real-time state sharing across clients.
+
+FlashDB removes the complexity of building:
+
+- WebSocket infrastructure
+- State synchronization
+- Pub/Sub systems
+- Optimistic updates
+- Concurrency-safe writes
+
+Instead, it provides a **simple key-value model with built-in realtime subscriptions**.
+
+### Typical use cases
+
+- Collaborative applications
+- Live dashboards
+- Multiplayer state sync
+- Real-time UI state
+- Feature flags
+- Presence systems
+- Shared counters
+- Reactive frontends
+
+---
+
+# Features
+
+### Realtime Subscriptions
+Subscribe to key changes and receive **instant push updates** over WebSocket.
+
+### Versioned Keys
+Every key is versioned and supports **Compare-And-Swap (CAS)** to prevent race conditions.
+
+### JWT Authentication
+Secure WebSocket connections using **JWT tokens**.
+
+### Namespaces
+Multi-tenant data isolation through **namespaces**.
+
+### Persistence
+Data is persisted using a **Write-Ahead Log (WAL)** for durability.
+
+### Sharded Storage
+High-performance **sharded in-memory store** for concurrent access.
+
+---
+
+# Quick Start
+
+### Run the server
+
 ```bash
-curl -L https://github.com/arindam923/flashdb/releases/latest/download/flashdb_darwin_amd64.tar.gz | tar xz
 ./flashdb
 ```
 
-### Linux
+Default configuration:
+- port: 8080
+- host: 0.0.0.0
+- data-dir: ./flashdb-data
+
+FlashDB automatically generates a JWT secret on first run.
+
+#### Custom port
 ```bash
-curl -L https://github.com/arindam923/flashdb/releases/latest/download/flashdb_linux_amd64.tar.gz | tar xz
-./flashdb
-```
-
-### Windows (PowerShell)
-```powershell
-Invoke-WebRequest -Uri "https://github.com/arindam923/flashdb/releases/latest/download/flashdb_windows_amd64.zip" -OutFile flashdb.zip
-Expand-Archive flashdb.zip -DestinationPath .
-.\flashdb.exe
-```
-
-## Features
-
-- **Realtime Subscriptions** - Subscribe to key changes and receive instant updates
-- **Versioned Keys** - Built-in versioning with Compare-And-Swap (CAS) for safe concurrent updates
-- **JWT Authentication** - Secure WebSocket connections with JWT tokens
-- **Namespaces** - Multi-tenant support with namespace isolation
-- **Persistence** - Automatic disk persistence with WAL (Write-Ahead Log)
-- **Sharded Storage** - High-performance sharded in-memory storage
-
-## Quick Start
-
-```bash
-# Run with defaults (auto-generates JWT secret)
-./flashdb
-
-# Custom port
 ./flashdb --port 3000
+# or
 ./flashdb -p 3000
+```
 
-# Custom data directory (for production)
+#### Custom data directory
+```bash
 ./flashdb --data-dir /var/lib/flashdb
+```
 
-# Show all options
+#### Show all options
+```bash
 ./flashdb --help
 ```
 
-On first run, FlashDB creates a config file at `./flashdb-data/flashdb.yaml` with your JWT secret.
+#### Docker
+```bash
+docker-compose up -d
+```
 
-## Configuration
+#### Download Pre-built Binaries
 
-### CLI Flags
+Pre-built binaries are available for multiple platforms:
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--port` | `-p` | 8080 | Server port |
-| `--host` | `-h` | 0.0.0.0 | Bind address |
-| `--data-dir` | `-d` | ./flashdb-data | Data directory |
-| `--jwt-secret` | `-j` | (auto-generate) | JWT signing secret |
-| `--config` | `-c` | - | Config file path |
-| `--persist-interval` | - | 5s | Persist interval |
-| `--log-level` | - | info | Log level |
+- **Linux (AMD64)**
+- **Linux (ARM64)**  
+- **Windows (AMD64)**
+- **macOS (AMD64)**
+- **macOS (ARM64)**
 
-### Environment Variables
+Download the latest release from:  
+[https://github.com/arindam923/fastdb/releases/tag/v1.0.0](https://github.com/arindam923/fastdb/releases/tag/v1.0.0)
 
-All CLI flags can also be set via environment variables:
+#### Build From Source
+```bash
+git clone https://github.com/arindam923/fastdb
+cd fastdb/server
+go build -o fastdb .
+./fastdb
+```
 
+### Configuration
+
+FlashDB can be configured via CLI flags, environment variables, or config file.
+
+#### CLI Flags
+
+| Flag               | Short | Default          | Description               |
+|---------------------|-------|------------------|---------------------------|
+| --port              | -p    | 8080             | Server port               |
+| --host              | -h    | 0.0.0.0          | Bind address              |
+| --data-dir          | -d    | ./flashdb-data   | Data directory            |
+| --jwt-secret        | -j    | auto-generated   | JWT signing secret        |
+| --config            | -c    | -                | Config file path          |
+| --persist-interval  |       | 5s               | Persistence interval      |
+| --log-level         |       | info             | Log level                 |
+
+#### Environment Variables
+
+All flags can also be set via environment variables:
 ```bash
 PORT=3000 DATA_DIR=/var/lib/flashdb ./flashdb
 ```
 
-## WebSocket Connection
+### Authentication
 
-Connect to the WebSocket endpoint using the JWT token from your config file:
+FlashDB uses JWT tokens for WebSocket authentication.
+
+When the server starts for the first time it generates:
+`flashdb-data/flashdb.yaml`
+
+Example:
+```yaml
+jwt_secret: super-secret-key
+```
+
+Use this secret to generate client tokens.
+
+### WebSocket Connection
 
 ```
 ws://localhost:8080/ws?token=<JWT_TOKEN>
 ```
 
-The JWT token is saved in `flashdb-data/flashdb.yaml` on first run.
+---
 
-## API
+# API
 
-### Operations
+Clients communicate with FlashDB using JSON messages over WebSocket.
 
-| Op | Description |
-|---|---|
-| `get` | Get value by key |
-| `set` | Set value (overwrites) |
-| `cas` | Compare-and-swap (version check) |
-| `delete` | Delete a key |
-| `sub` | Subscribe to key changes |
-| `unsub` | Unsubscribe from key |
+### Supported Operations
 
-### Messages
+| Operation | Description              |
+|-----------|--------------------------|
+| get       | Retrieve value by key    |
+| set       | Set value (overwrite)    |
+| cas       | Compare-and-swap update  |
+| delete    | Delete key               |
+| sub       | Subscribe to key updates |
+| unsub     | Unsubscribe from key     |
 
-**Client → Server:**
+### Client → Server
 
+Example request:
 ```json
 {
   "id": "req-123",
   "op": "set",
   "key": "users:1",
-  "value": { "name": "Alice" }
+  "value": {
+    "name": "Alice"
+  }
 }
 ```
 
-**Server → Client:**
+### Server → Client
 
+Acknowledgement:
 ```json
 {
   "id": "req-123",
   "op": "ack",
   "key": "users:1",
-  "value": { "name": "Alice" },
+  "value": {
+    "name": "Alice"
+  },
   "version": 1
 }
 ```
 
 ### Realtime Events
 
-When a subscribed key changes, the server pushes:
-
+When a subscribed key changes, clients receive:
 ```json
 {
   "op": "event",
   "key": "users:1",
-  "value": { "name": "Alice" },
+  "value": {
+    "name": "Alice"
+  },
   "version": 2
 }
 ```
 
-## React SDK
+---
 
-Install:
+# React SDK
 
+FlashDB ships with a React SDK for real-time state synchronization.
+
+### Install
 ```bash
 npm install @arindam923/flashdb
 ```
 
-### Usage
-
+### Example
 ```tsx
-import { FlashDB, FlashDBProvider, useValue, useMutation } from '@arindam923/flashdb';
+import { FlashDB, FlashDBProvider, useValue, useMutation } from '@arindam923/flashdb'
 
 const db = new FlashDB({
   url: 'ws://localhost:8080/ws',
-  // Option 1: Pass JWT secret directly - SDK generates token automatically
-  jwtSecret: 'your-jwt-secret-from-flashdb-data/flashdb.yaml',
-  jwtExpiresIn: 3600, // optional, token expiry in seconds
-});
+  jwtSecret: 'your-jwt-secret',
+  jwtExpiresIn: 3600
+})
 
 function App() {
   return (
     <FlashDBProvider client={db}>
       <Counter />
     </FlashDBProvider>
-  );
+  )
 }
 
 function Counter() {
-  const { value: count, version } = useValue('counter');
-  const { mutate, loading } = useMutation('counter');
-  
+  const { value: count } = useValue('counter')
+  const { mutate, loading } = useMutation('counter')
+
   return (
-    <button onClick={() => mutate(count ?? 0 + 1)} disabled={loading}>
+    <button
+      disabled={loading}
+      onClick={() => mutate((count ?? 0) + 1)}
+    >
       Count: {count ?? 0}
     </button>
-  );
+  )
 }
 ```
 
-### Options
+### SDK Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `url` | string | - | WebSocket URL |
-| `token` | string | - | Pre-generated JWT token |
-| `jwtSecret` | string | - | Plain text JWT secret (SDK auto-generates token) |
-| `jwtExpiresIn` | number | 3600 | Token expiry in seconds |
-| `reconnectDelay` | number | 1000 | Initial reconnect delay (ms) |
-| `maxReconnectDelay` | number | 30000 | Max reconnect delay (ms) |
+| Option            | Type   | Description               |
+|-------------------|--------|---------------------------|
+| url               | string | WebSocket server URL      |
+| token             | string | Pre-generated JWT token   |
+| jwtSecret         | string | Secret used to generate token |
+| jwtExpiresIn      | number | Token expiry time         |
+| reconnectDelay    | number | Initial reconnect delay   |
+| maxReconnectDelay | number | Maximum reconnect delay   |
 
-### Hooks
+### React Hooks
 
-- `useValue(key)` - Subscribe to a key's value
-- `useMutation(key)` - Set/delete with optimistic updates
-- `useConnection()` - Track connection state
-- `useOptimisticValue(key)` - Instant local updates
+| Hook                  | Description                  |
+|-----------------------|------------------------------|
+| useValue(key)         | Subscribe to a key           |
+| useMutation(key)      | Update or delete a key       |
+| useConnection()       | Track connection state       |
+| useOptimisticValue(key)| Local optimistic updates     |
 
-## Running with Docker
+---
 
-```bash
-docker-compose up -d
-```
-
-## Running from Source
-
-```bash
-cd server
-go build -o flashdb .
-./flashdb
-```
-
-## Architecture
+# Architecture
 
 ```
 flashdb/
-├── server/           # Go server
+├── server/
 │   ├── main.go       # Entry point
-│   ├── config.go     # CLI & config
-│   ├── hub.go        # WebSocket hub & message handling
-│   └── store.go      # Sharded in-memory store with WAL
-├── client/js/        # React/TypeScript SDK
-└── .github/          # CI/CD workflows
+│   ├── config.go     # Configuration management
+│   ├── hub.go        # WebSocket connection handler
+│   └── store.go      # In-memory storage
+│
+├── client/
+│   └── js/
+│       └── React SDK
+│
+└── .github/
+    └── CI/CD
 ```
 
-## Contributing
+### Server Components
+
+#### Hub
+Handles WebSocket connections, routing messages, and managing subscriptions.
+
+#### Store
+Sharded in-memory key-value store with versioning and WAL persistence.
+
+#### WAL
+Write-Ahead Log ensures durability and crash recovery.
+
+---
+
+# Contributing
+
+Contributions are welcome!
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
+3. Commit your changes
 4. Submit a pull request
 
-## License
+Please read CONTRIBUTING.md before submitting.
 
-MIT
+---
+
+# License
+
+MIT License
