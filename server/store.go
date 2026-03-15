@@ -47,16 +47,15 @@ type Entry struct {
 	updated time.Time
 }
 
-const numShards = 256
-
 type shard struct {
 	mu      sync.RWMutex
 	entries map[string]*Entry
 }
 
 type Store struct {
-	shards [numShards]shard
-	wal    *Wal
+	shards     []shard
+	shardCount int
+	wal        *Wal
 }
 
 func NewWal() *Wal {
@@ -151,11 +150,18 @@ func (w *Wal) Truncate() error {
 	return nil
 }
 
-func NewStore(dataDir string) *Store {
+func NewStore(dataDir string, shardCount int) *Store {
 	persistFile = dataDir + "/data.json"
 	walFile = dataDir + "/wal.log"
 
-	s := &Store{}
+	if shardCount <= 0 {
+		shardCount = 256 // Default shard count
+	}
+
+	s := &Store{
+		shardCount: shardCount,
+		shards:     make([]shard, shardCount),
+	}
 
 	for i := range s.shards {
 		s.shards[i].entries = make(map[string]*Entry)
@@ -167,14 +173,18 @@ func NewStore(dataDir string) *Store {
 	return s
 }
 
-func (s *Store) shard(key string) *shard {
+func (s *Store) shardIndex(key string) int {
 	// FNV-1a hash for fast, uniform distribution
 	h := uint32(2166136261)
 	for i := 0; i < len(key); i++ {
 		h ^= uint32(key[i])
 		h *= 16777619
 	}
-	return &s.shards[h%numShards]
+	return int(h % uint32(s.shardCount))
+}
+
+func (s *Store) shard(key string) *shard {
+	return &s.shards[s.shardIndex(key)]
 }
 
 // Get returns the raw JSON value + version for a key.
@@ -413,4 +423,63 @@ func (s *Store) StartAutoPersist(interval time.Duration) {
 			s.wal.Truncate()
 		}
 	}()
+}
+
+func (s *Store) SaveSnapshot() error {
+	snapshotFile := persistFile + ".snapshot"
+	data := make(persistedData)
+
+	for i := range s.shards {
+		s.shards[i].mu.RLock()
+		for k, e := range s.shards[i].entries {
+			data[k] = persistedEntry{
+				Data:    e.data,
+				Version: e.version,
+				Updated: e.updated,
+			}
+		}
+		s.shards[i].mu.RUnlock()
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	tmpFile := snapshotFile + ".tmp"
+	if err := os.WriteFile(tmpFile, jsonData, 0644); err != nil {
+		return err
+	}
+
+	if err := os.Rename(tmpFile, snapshotFile); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) LoadSnapshot() error {
+	snapshotFile := persistFile + ".snapshot"
+	data, err := os.ReadFile(snapshotFile)
+	if err != nil {
+		return err
+	}
+
+	var stored persistedData
+	if err := json.Unmarshal(data, &stored); err != nil {
+		return err
+	}
+
+	for key, entry := range stored {
+		sh := s.shard(key)
+		sh.mu.Lock()
+		sh.entries[key] = &Entry{
+			data:    entry.Data,
+			version: entry.Version,
+			updated: entry.Updated,
+		}
+		sh.mu.Unlock()
+	}
+
+	return nil
 }

@@ -19,6 +19,10 @@ type Config struct {
 	JWTSecret       string `yaml:"jwt-secret"`
 	PersistInterval string `yaml:"persist-interval"`
 	LogLevel        string `yaml:"log-level"`
+	TLS             bool   `yaml:"tls"`
+	CertFile        string `yaml:"cert-file"`
+	KeyFile         string `yaml:"key-file"`
+	ShardCount      int    `yaml:"shard-count"`
 }
 
 var (
@@ -29,6 +33,10 @@ var (
 	configFile      = kingpin.Flag("config", "Config file path").Short('c').ExistingFile()
 	persistInterval = kingpin.Flag("persist-interval", "How often to persist data to disk").Default("5s").Envar("PERSIST_INTERVAL").String()
 	logLevel        = kingpin.Flag("log-level", "Log level (debug, info, warn, error)").Default("info").Envar("LOG_LEVEL").String()
+	tls             = kingpin.Flag("tls", "Enable TLS encryption (WSS)").Envar("TLS").Bool()
+	certFile        = kingpin.Flag("cert-file", "TLS certificate file path").Envar("CERT_FILE").String()
+	keyFile         = kingpin.Flag("key-file", "TLS private key file path").Envar("KEY_FILE").String()
+	shardCount      = kingpin.Flag("shard-count", "Number of shards for data storage").Default("256").Envar("SHARD_COUNT").Int()
 )
 
 func ParseAndValidate() *Config {
@@ -44,6 +52,10 @@ func loadConfig() *Config {
 		JWTSecret:       *cfgJWTFlag,
 		PersistInterval: *persistInterval,
 		LogLevel:        *logLevel,
+		TLS:             *tls,
+		CertFile:        *certFile,
+		KeyFile:         *keyFile,
+		ShardCount:      *shardCount,
 	}
 
 	if *configFile != "" {
@@ -72,6 +84,18 @@ func loadConfig() *Config {
 		}
 		if fileCfg.LogLevel != "" {
 			cfg.LogLevel = fileCfg.LogLevel
+		}
+		if fileCfg.TLS {
+			cfg.TLS = fileCfg.TLS
+		}
+		if fileCfg.CertFile != "" {
+			cfg.CertFile = fileCfg.CertFile
+		}
+		if fileCfg.KeyFile != "" {
+			cfg.KeyFile = fileCfg.KeyFile
+		}
+		if fileCfg.ShardCount > 0 {
+			cfg.ShardCount = fileCfg.ShardCount
 		}
 	}
 

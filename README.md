@@ -53,7 +53,13 @@ Multi-tenant data isolation through **namespaces**.
 Data is persisted using a **Write-Ahead Log (WAL)** for durability.
 
 ### Sharded Storage
-High-performance **sharded in-memory store** for concurrent access.
+High-performance **sharded in-memory store** with dynamic shard count for optimal concurrent access.
+
+### TLS Encryption
+Secure WebSocket connections using TLS (WSS) for production deployments.
+
+### Incremental Snapshots
+Efficient WAL management with incremental snapshot persistence.
 
 ---
 
@@ -119,6 +125,42 @@ go build -o fastdb .
 
 FlashDB can be configured via CLI flags, environment variables, or config file.
 
+#### TLS Encryption
+
+Enable TLS encryption with:
+```bash
+# Using CLI flags
+./flashdb --tls --cert-file server.crt --key-file server.key
+
+# Using environment variables
+TLS=true CERT_FILE=server.crt KEY_FILE=server.key ./flashdb
+```
+
+#### Dynamic Sharding
+
+Adjust the number of shards for better performance:
+```bash
+# Increase shard count for high-concurrency workloads
+./flashdb --shard-count 1024
+
+# Decrease shard count for small datasets
+./flashdb --shard-count 64
+```
+
+#### Config File Example (flashdb.yaml)
+```yaml
+port: 8080
+host: 0.0.0.0
+data-dir: ./flashdb-data
+jwt-secret: "your-super-secret-key"
+persist-interval: 5s
+log-level: info
+tls: true
+cert-file: "server.crt"
+key-file: "server.key"
+shard-count: 512
+```
+
 #### CLI Flags
 
 | Flag               | Short | Default          | Description               |
@@ -130,6 +172,10 @@ FlashDB can be configured via CLI flags, environment variables, or config file.
 | --config            | -c    | -                | Config file path          |
 | --persist-interval  |       | 5s               | Persistence interval      |
 | --log-level         |       | info             | Log level                 |
+| --tls               |       | false            | Enable TLS encryption     |
+| --cert-file         |       | -                | TLS certificate file path |
+| --key-file          |       | -                | TLS private key file path |
+| --shard-count       |       | 256              | Number of shards          |
 
 #### Environment Variables
 
@@ -154,8 +200,14 @@ Use this secret to generate client tokens.
 
 ### WebSocket Connection
 
+#### Unencrypted (WS)
 ```
 ws://localhost:8080/ws?token=<JWT_TOKEN>
+```
+
+#### Encrypted (WSS) with TLS
+```
+wss://localhost:8080/ws?token=<JWT_TOKEN>
 ```
 
 ---
@@ -264,14 +316,16 @@ function Counter() {
 
 ### SDK Options
 
-| Option            | Type   | Description               |
-|-------------------|--------|---------------------------|
-| url               | string | WebSocket server URL      |
-| token             | string | Pre-generated JWT token   |
-| jwtSecret         | string | Secret used to generate token |
-| jwtExpiresIn      | number | Token expiry time         |
-| reconnectDelay    | number | Initial reconnect delay   |
-| maxReconnectDelay | number | Maximum reconnect delay   |
+| Option              | Type    | Description               |
+|---------------------|---------|---------------------------|
+| url                 | string  | WebSocket server URL      |
+| token               | string  | Pre-generated JWT token   |
+| jwtSecret           | string  | Secret used to generate token |
+| jwtExpiresIn        | number  | Token expiry time         |
+| reconnectDelay      | number  | Initial reconnect delay   |
+| maxReconnectDelay   | number  | Maximum reconnect delay   |
+| tls                 | boolean | Force TLS encryption      |
+| rejectUnauthorized  | boolean | Reject invalid certificates (default: true) |
 
 ### React Hooks
 

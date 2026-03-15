@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlashDB Demo - Real-time Key-Value Database</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected {
+            background: #28a745;
+        }
+
+        .status-indicator.disconnected {
+            background: #dc3545;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .result {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .logs {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .log-entry {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .log-entry .time {
+            color: #a0aec0;
+            margin-right: 0.5rem;
+        }
+
+        .log-entry .level {
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+            font-weight: 600;
+        }
+
+        .log-entry .level.info {
+            background: #3182ce;
+            color: white;
+        }
+
+        .log-entry .level.success {
+            background: #38a169;
+            color: white;
+        }
+
+        .log-entry .level.error {
+            background: #e53e3e;
+            color: white;
+        }
+
+        .log-entry .level.warning {
+            background: #dd6b20;
+            color: white;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+
+        .feature-list li {
+            padding: 0.75rem;
+            background: #f8f9fa;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feature-list li::before {
+            content: "✅";
+            font-size: 1.2rem;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ FlashDB Demo</h1>
+        
+        <div class="card">
+            <h2>🚀 Features</h2>
+            <ul class="feature-list">
+                <li>Real-time WebSocket API for instant updates</li>
+                <li>Versioned keys with Compare-And-Swap (CAS)</li>
+                <li>JWT authentication and authorization</li>
+                <li>TLS encryption for secure connections (WSS)</li>
+                <li>Dynamic sharding for high concurrency</li>
+                <li>Incremental snapshot persistence</li>
+                <li>Automatic reconnection with exponential backoff</li>
+                <li>React SDK with hooks</li>
+            </ul>
+        </div>
+
+        <div class="demo-grid">
+            <div class="card">
+                <h2>🔗 Connection</h2>
+                
+                <div class="form-group">
+                    <label for="serverUrl">Server URL</label>
+                    <input 
+                        type="text" 
+                        id="serverUrl" 
+                        value="ws://localhost:8080/ws"
+                        placeholder="ws://localhost:8080/ws"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="jwtSecret">JWT Secret</label>
+                    <input 
+                        type="password" 
+                        id="jwtSecret" 
+                        placeholder="Enter JWT secret"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="shardCount">Shard Count</label>
+                    <select id="shardCount">
+                        <option value="64">64 Shards</option>
+                        <option value="128">128 Shards</option>
+                        <option value="256" selected>256 Shards (Default)</option>
+                        <option value="512">512 Shards</option>
+                        <option value="1024">1024 Shards</option>
+                    </select>
+                </div>
+
+                <button class="btn" id="connectBtn">Connect</button>
+                <button class="btn" id="disconnectBtn" disabled>Disconnect</button>
+                
+                <div id="statusContainer" class="status disconnected" style="margin-top: 1rem;">
+                    <span class="status-indicator disconnected"></span>
+                    <span>Disconnected</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📝 Key-Value Operations</h2>
+                
+                <div class="form-group">
+                    <label for="keyInput">Key</label>
+                    <input 
+                        type="text" 
+                        id="keyInput" 
+                        placeholder="Enter key"
+                        value="demo:counter"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="valueInput">Value</label>
+                    <input 
+                        type="text" 
+                        id="valueInput" 
+                        placeholder="Enter JSON value"
+                        value="0"
+                    >
+                </div>
+
+                <button class="btn" id="getBtn" disabled>Get</button>
+                <button class="btn" id="setBtn" disabled>Set</button>
+                <button class="btn" id="deleteBtn" disabled>Delete</button>
+
+                <div id="resultContainer" class="result" style="display: none;"></div>
+            </div>
+
+            <div class="card">
+                <h2>🔄 Subscribe to Changes</h2>
+                
+                <div class="form-group">
+                    <label for="subscribeKey">Key</label>
+                    <input 
+                        type="text" 
+                        id="subscribeKey" 
+                        placeholder="Enter key to subscribe"
+                        value="demo:counter"
+                    >
+                </div>
+
+                <button class="btn" id="subscribeBtn" disabled>Subscribe</button>
+                <button class="btn" id="unsubscribeBtn" disabled>Unsubscribe</button>
+
+                <div id="subscriptionResult" class="result" style="display: none;"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📋 Logs</h2>
+            <div id="logsContainer" class="logs"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import FlashDB (You'll need to adjust this path based on your setup)
+        import { FlashDB } from './dist/index.js';
+
+        let db = null;
+        let isConnected = false;
+        let unsubscribe = null;
+
+        // DOM Elements
+        const serverUrlInput = document.getElementById('serverUrl');
+        const jwtSecretInput = document.getElementById('jwtSecret');
+        const shardCountSelect = document.getElementById('shardCount');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const statusContainer = document.getElementById('statusContainer');
+        const statusIndicator = statusContainer.querySelector('.status-indicator');
+        const statusText = statusContainer.querySelector('span:nth-child(2)');
+
+        const keyInput = document.getElementById('keyInput');
+        const valueInput = document.getElementById('valueInput');
+        const getBtn = document.getElementById('getBtn');
+        const setBtn = document.getElementById('setBtn');
+        const deleteBtn = document.getElementById('deleteBtn');
+        const resultContainer = document.getElementById('resultContainer');
+
+        const subscribeKeyInput = document.getElementById('subscribeKey');
+        const subscribeBtn = document.getElementById('subscribeBtn');
+        const unsubscribeBtn = document.getElementById('unsubscribeBtn');
+        const subscriptionResult = document.getElementById('subscriptionResult');
+
+        const logsContainer = document.getElementById('logsContainer');
+
+        // Logging function
+        function log(level, message) {
+            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="time">[${timestamp}]</span>
+                <span class="level ${level}">${level.toUpperCase()}</span>
+                <span>${message}</span>
+            `;
+            logsContainer.appendChild(entry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        // Update connection status
+        function updateStatus(connected) {
+            isConnected = connected;
+            if (connected) {
+                statusContainer.className = 'status connected';
+                statusIndicator.className = 'status-indicator connected';
+                statusText.textContent = 'Connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                getBtn.disabled = false;
+                setBtn.disabled = false;
+                deleteBtn.disabled = false;
+                subscribeBtn.disabled = false;
+                log('success', 'Connected to FlashDB server');
+            } else {
+                statusContainer.className = 'status disconnected';
+                statusIndicator.className = 'status-indicator disconnected';
+                statusText.textContent = 'Disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                getBtn.disabled = true;
+                setBtn.disabled = true;
+                deleteBtn.disabled = true;
+                subscribeBtn.disabled = true;
+                unsubscribeBtn.disabled = true;
+                log('error', 'Disconnected from FlashDB server');
+            }
+        }
+
+        // Connect button handler
+        connectBtn.addEventListener('click', async () => {
+            const serverUrl = serverUrlInput.value.trim();
+            const jwtSecret = jwtSecretInput.value.trim();
+            const shardCount = parseInt(shardCountSelect.value);
+
+            try {
+                log('info', `Connecting to ${serverUrl}...`);
+                
+                db = new FlashDB({
+                    url: serverUrl,
+                    jwtSecret: jwtSecret,
+                    tls: serverUrl.startsWith('wss://') || serverUrl.startsWith('https://')
+                });
+
+                db.onConnect(() => {
+                    updateStatus(true);
+                });
+
+                db.onDisconnect(() => {
+                    updateStatus(false);
+                });
+
+                log('info', `Connection in progress...`);
+            } catch (error) {
+                log('error', `Connection failed: ${error.message}`);
+            }
+        });
+
+        // Disconnect button handler
+        disconnectBtn.addEventListener('click', () => {
+            if (db) {
+                db.destroy();
+                db = null;
+                updateStatus(false);
+                if (unsubscribe) {
+                    unsubscribe();
+                    unsubscribe = null;
+                }
+            }
+        });
+
+        // Get button handler
+        getBtn.addEventListener('click', async () => {
+            const key = keyInput.value.trim();
+            try {
+                log('info', `Getting value for key: ${key}`);
+                const result = await db.get(key);
+                resultContainer.textContent = JSON.stringify(result, null, 2);
+                resultContainer.style.display = 'block';
+                log('success', `Successfully retrieved key: ${key}`);
+            } catch (error) {
+                resultContainer.textContent = error.message;
+                resultContainer.style.display = 'block';
+                log('error', `Error getting key: ${error.message}`);
+            }
+        });
+
+        // Set button handler
+        setBtn.addEventListener('click', async () => {
+            const key = keyInput.value.trim();
+            const value = valueInput.value.trim();
+            try {
+                log('info', `Setting value for key: ${key}`);
+                const result = await db.set(key, JSON.parse(value));
+                resultContainer.textContent = JSON.stringify(result, null, 2);
+                resultContainer.style.display = 'block';
+                log('success', `Successfully set key: ${key}`);
+            } catch (error) {
+                resultContainer.textContent = error.message;
+                resultContainer.style.display = 'block';
+                log('error', `Error setting key: ${error.message}`);
+            }
+        });
+
+        // Delete button handler
+        deleteBtn.addEventListener('click', async () => {
+            const key = keyInput.value.trim();
+            try {
+                log('info', `Deleting key: ${key}`);
+                const result = await db.delete(key);
+                resultContainer.textContent = JSON.stringify(result, null, 2);
+                resultContainer.style.display = 'block';
+                log('success', `Successfully deleted key: ${key}`);
+            } catch (error) {
+                resultContainer.textContent = error.message;
+                resultContainer.style.display = 'block';
+                log('error', `Error deleting key: ${error.message}`);
+            }
+        });
+
+        // Subscribe button handler
+        subscribeBtn.addEventListener('click', () => {
+            const key = subscribeKeyInput.value.trim();
+            unsubscribe = db.subscribe(key, (value, version) => {
+                const update = {
+                    value: value,
+                    version: version,
+                    timestamp: new Date().toISOString()
+                };
+                subscriptionResult.textContent = JSON.stringify(update, null, 2);
+                subscriptionResult.style.display = 'block';
+                log('info', `Key updated: ${key}, Version: ${version}`);
+            });
+            subscribeBtn.disabled = true;
+            unsubscribeBtn.disabled = false;
+            log('success', `Subscribed to key: ${key}`);
+        });
+
+        // Unsubscribe button handler
+        unsubscribeBtn.addEventListener('click', () => {
+            if (unsubscribe) {
+                unsubscribe();
+                unsubscribe = null;
+                subscribeBtn.disabled = false;
+                unsubscribeBtn.disabled = true;
+                subscriptionResult.style.display = 'none';
+                log('info', `Unsubscribed from key: ${subscribeKeyInput.value}`);
+            }
+        });
+
+        // Auto-fill demo counter
+        const counterBtn = document.createElement('button');
+        counterBtn.className = 'btn';
+        counterBtn.textContent = 'Increment Counter';
+        counterBtn.addEventListener('click', async () => {
+            const key = 'demo:counter';
+            try {
+                const result = await db.get(key);
+                const currentValue = result ? parseInt(result.value) : 0;
+                const newValue = currentValue + 1;
+                await db.set(key, newValue);
+                valueInput.value = newValue;
+                log('success', `Counter incremented to: ${newValue}`);
+            } catch (error) {
+                log('error', `Error incrementing counter: ${error.message}`);
+            }
+        });
+
+        const counterContainer = document.createElement('div');
+        counterContainer.className = 'form-group';
+        counterContainer.appendChild(counterBtn);
+        document.querySelector('.card:nth-child(2)').appendChild(counterContainer);
+
+        log('info', 'Demo ready! Connect to FlashDB server to get started');
+    </script>
+</body>
+</html>

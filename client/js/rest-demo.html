@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlashDB REST API Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            background-color: #fafafa;
+        }
+        h2 {
+            margin-top: 0;
+            color: #555;
+            font-size: 1.2rem;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: inline-block;
+            width: 120px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        input, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            width: 300px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e9f5ff;
+            border: 1px solid #b8daff;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .loading {
+            color: #6c757d;
+            font-style: italic;
+        }
+        .operations {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ FlashDB REST API Demo</h1>
+        
+        <div class="section">
+            <h2>Connection Configuration</h2>
+            <div class="form-group">
+                <label for="baseUrl">Base URL:</label>
+                <input type="text" id="baseUrl" value="https://localhost:8080" placeholder="https://localhost:8080">
+            </div>
+            <div class="form-group">
+                <label for="jwtSecret">JWT Secret:</label>
+                <input type="text" id="jwtSecret" value="" placeholder="Enter JWT secret">
+            </div>
+            <div class="form-group">
+                <label for="rejectUnauthorized">Reject Unauthorized:</label>
+                <select id="rejectUnauthorized">
+                    <option value="false">False (for self-signed certificates)</option>
+                    <option value="true" selected>True (for valid certificates)</option>
+                </select>
+            </div>
+            <button id="testConnection">Test Connection</button>
+            <div id="connectionResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>Key-Value Operations</h2>
+            <div class="form-group">
+                <label for="key">Key:</label>
+                <input type="text" id="key" value="test-key" placeholder="Enter key">
+            </div>
+            <div class="form-group">
+                <label for="value">Value:</label>
+                <input type="text" id="value" value="test-value" placeholder="Enter value">
+            </div>
+            <div class="operations">
+                <button id="btnSet">Set</button>
+                <button id="btnGet">Get</button>
+                <button id="btnDelete">Delete</button>
+            </div>
+            <div id="kvResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>CAS Operation</h2>
+            <div class="form-group">
+                <label for="casKey">Key:</label>
+                <input type="text" id="casKey" value="test-key" placeholder="Enter key">
+            </div>
+            <div class="form-group">
+                <label for="casValue">Value:</label>
+                <input type="text" id="casValue" value="updated-value" placeholder="Enter value">
+            </div>
+            <div class="form-group">
+                <label for="expectedVersion">Expected Version:</label>
+                <input type="number" id="expectedVersion" value="1" placeholder="Enter expected version">
+            </div>
+            <button id="btnCAS">CAS</button>
+            <div id="casResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>Database Operations</h2>
+            <div class="operations">
+                <button id="btnKeys">List Keys</button>
+                <button id="btnSnapshot">Create Snapshot</button>
+                <button id="btnHealth">Health Check</button>
+            </div>
+            <div id="dbResult" class="result"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { createRESTClient } from './dist/index.js';
+
+        let client = null;
+        let isConnected = false;
+
+        const baseUrlInput = document.getElementById('baseUrl');
+        const jwtSecretInput = document.getElementById('jwtSecret');
+        const rejectUnauthorizedSelect = document.getElementById('rejectUnauthorized');
+        const testConnectionBtn = document.getElementById('testConnection');
+        const connectionResult = document.getElementById('connectionResult');
+
+        const keyInput = document.getElementById('key');
+        const valueInput = document.getElementById('value');
+        const btnSet = document.getElementById('btnSet');
+        const btnGet = document.getElementById('btnGet');
+        const btnDelete = document.getElementById('btnDelete');
+        const kvResult = document.getElementById('kvResult');
+
+        const casKeyInput = document.getElementById('casKey');
+        const casValueInput = document.getElementById('casValue');
+        const expectedVersionInput = document.getElementById('expectedVersion');
+        const btnCAS = document.getElementById('btnCAS');
+        const casResult = document.getElementById('casResult');
+
+        const btnKeys = document.getElementById('btnKeys');
+        const btnSnapshot = document.getElementById('btnSnapshot');
+        const btnHealth = document.getElementById('btnHealth');
+        const dbResult = document.getElementById('dbResult');
+
+        function showResult(element, content, type = 'info') {
+            element.textContent = content;
+            element.className = `result ${type}`;
+        }
+
+        function showLoading(element) {
+            showResult(element, 'Loading...', 'loading');
+        }
+
+        async function createClient() {
+            const baseUrl = baseUrlInput.value;
+            const jwtSecret = jwtSecretInput.value;
+            const rejectUnauthorized = rejectUnauthorizedSelect.value === 'true';
+
+            return createRESTClient({
+                baseUrl,
+                jwtSecret,
+                rejectUnauthorized,
+            });
+        }
+
+        testConnectionBtn.addEventListener('click', async () => {
+            try {
+                showLoading(connectionResult);
+                client = await createClient();
+                const health = await client.health();
+                showResult(connectionResult, JSON.stringify(health, null, 2), 'success');
+                isConnected = true;
+            } catch (error) {
+                showResult(connectionResult, error.message, 'error');
+                isConnected = false;
+            }
+        });
+
+        btnSet.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(kvResult, 'Please connect first', 'error');
+                return;
+            }
+
+            const key = keyInput.value;
+            const value = valueInput.value;
+            
+            try {
+                showLoading(kvResult);
+                const result = await client.set(key, value);
+                showResult(kvResult, JSON.stringify(result, null, 2), 'success');
+            } catch (error) {
+                showResult(kvResult, error.message, 'error');
+            }
+        });
+
+        btnGet.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(kvResult, 'Please connect first', 'error');
+                return;
+            }
+
+            const key = keyInput.value;
+            
+            try {
+                showLoading(kvResult);
+                const result = await client.get(key);
+                showResult(kvResult, JSON.stringify(result, null, 2), 'success');
+            } catch (error) {
+                showResult(kvResult, error.message, 'error');
+            }
+        });
+
+        btnDelete.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(kvResult, 'Please connect first', 'error');
+                return;
+            }
+
+            const key = keyInput.value;
+            
+            try {
+                showLoading(kvResult);
+                const result = await client.delete(key);
+                showResult(kvResult, JSON.stringify(result, null, 2), 'success');
+            } catch (error) {
+                showResult(kvResult, error.message, 'error');
+            }
+        });
+
+        btnCAS.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(casResult, 'Please connect first', 'error');
+                return;
+            }
+
+            const key = casKeyInput.value;
+            const value = casValueInput.value;
+            const expectedVersion = parseInt(expectedVersionInput.value);
+            
+            try {
+                showLoading(casResult);
+                const result = await client.cas(key, value, expectedVersion);
+                showResult(casResult, JSON.stringify(result, null, 2), result.conflict ? 'error' : 'success');
+            } catch (error) {
+                showResult(casResult, error.message, 'error');
+            }
+        });
+
+        btnKeys.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(dbResult, 'Please connect first', 'error');
+                return;
+            }
+
+            try {
+                showLoading(dbResult);
+                const result = await client.keys();
+                showResult(dbResult, JSON.stringify(result, null, 2), 'success');
+            } catch (error) {
+                showResult(dbResult, error.message, 'error');
+            }
+        });
+
+        btnSnapshot.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(dbResult, 'Please connect first', 'error');
+                return;
+            }
+
+            try {
+                showLoading(dbResult);
+                await client.snapshot();
+                showResult(dbResult, 'Snapshot created successfully', 'success');
+            } catch (error) {
+                showResult(dbResult, error.message, 'error');
+            }
+        });
+
+        btnHealth.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(dbResult, 'Please connect first', 'error');
+                return;
+            }
+
+            try {
+                showLoading(dbResult);
+                const health = await client.health();
+                showResult(dbResult, JSON.stringify(health, null, 2), 'success');
+            } catch (error) {
+                showResult(dbResult, error.message, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

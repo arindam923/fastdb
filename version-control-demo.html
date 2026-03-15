@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlashDB Version Control Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+        h2 {
+            color: #4a5568;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+            font-size: 1.5rem;
+        }
+        .section {
+            margin-bottom: 25px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+            margin-right: 10px;
+            color: #2d3748;
+        }
+        input {
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 16px;
+            width: 350px;
+            background-color: #ffffff;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+        button {
+            padding: 12px 24px;
+            background-color: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 15px;
+            transition: background-color 0.3s, transform 0.2s;
+            font-weight: 600;
+        }
+        button:hover {
+            background-color: #2b6cb0;
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #ebf8ff;
+            border: 1px solid #bee3f8;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            color: #2c5282;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error {
+            background-color: #fed7d7;
+            border-color: #feb2b2;
+            color: #742a2a;
+        }
+        .success {
+            background-color: #c6f6d5;
+            border-color: #9ae6b4;
+            color: #22543d;
+        }
+        .loading {
+            color: #718096;
+            font-style: italic;
+        }
+        .operations {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .user-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .user {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #4299e1;
+        }
+        .user h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #2d3748;
+            font-size: 1.2rem;
+        }
+        .current-state {
+            margin-top: 10px;
+            padding: 15px;
+            background-color: #fffaf0;
+            border: 1px solid #fbd38d;
+            border-radius: 6px;
+            color: #7c2d12;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-success {
+            background-color: #48bb78;
+        }
+        .status-error {
+            background-color: #f56565;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ FlashDB Version Control System</h1>
+        <p style="text-align: center; color: #718096; margin-bottom: 30px;">
+            Hidden version numbers for automatic conflict detection and resolution
+        </p>
+
+        <div class="section">
+            <h2>Connection Configuration</h2>
+            <div class="form-group">
+                <label for="baseUrl">Base URL:</label>
+                <input type="text" id="baseUrl" value="http://localhost:8080" placeholder="http://localhost:8080">
+            </div>
+            <div class="form-group">
+                <label for="jwtSecret">JWT Secret:</label>
+                <input type="text" id="jwtSecret" value="" placeholder="Enter JWT secret">
+            </div>
+            <button id="testConnection">Test Connection</button>
+            <div id="connectionResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>Data Management</h2>
+            <div class="form-group">
+                <label for="dataKey">Data Key:</label>
+                <input type="text" id="dataKey" value="demo:counter" placeholder="demo:counter">
+            </div>
+            <div class="form-group">
+                <label for="initialValue">Initial Value:</label>
+                <input type="text" id="initialValue" value="0" placeholder="Initial value">
+            </div>
+            <button id="btnInitialize">Initialize Data</button>
+            <button id="btnGetState">Get Current State</button>
+            <div id="initializationResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>Concurrent Update Test</h2>
+            <p style="color: #718096; margin-bottom: 15px;">
+                This test simulates multiple users updating the same data at the same time to demonstrate conflict detection.
+            </p>
+            <div class="form-group">
+                <label for="updateValue">Update Value:</label>
+                <input type="text" id="updateValue" value="1" placeholder="Value to add">
+            </div>
+            <div class="form-group">
+                <label for="concurrencyCount">Concurrency:</label>
+                <input type="number" id="concurrencyCount" value="10" min="2" max="100" placeholder="Number of concurrent updates">
+            </div>
+            <button id="btnRunTest">Run Concurrent Test</button>
+            <div id="testResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>Version Control Demo</h2>
+            <div class="user-panel">
+                <div class="user">
+                    <h3>User 1 (Alice)</h3>
+                    <div class="form-group">
+                        <label for="user1Value">New Value:</label>
+                        <input type="text" id="user1Value" value="Hello from Alice" placeholder="New value">
+                    </div>
+                    <button id="btnUser1Update">Update Value</button>
+                    <div id="user1Result" class="result"></div>
+                </div>
+                <div class="user">
+                    <h3>User 2 (Bob)</h3>
+                    <div class="form-group">
+                        <label for="user2Value">New Value:</label>
+                        <input type="text" id="user2Value" value="Hello from Bob" placeholder="New value">
+                    </div>
+                    <button id="btnUser2Update">Update Value</button>
+                    <div id="user2Result" class="result"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { createRESTClient } from './client/js/dist/index.js';
+
+        let restClient = null;
+        let isConnected = false;
+
+        const baseUrlInput = document.getElementById('baseUrl');
+        const jwtSecretInput = document.getElementById('jwtSecret');
+        const testConnectionBtn = document.getElementById('testConnection');
+        const connectionResult = document.getElementById('connectionResult');
+
+        const dataKeyInput = document.getElementById('dataKey');
+        const initialValueInput = document.getElementById('initialValue');
+        const btnInitialize = document.getElementById('btnInitialize');
+        const btnGetState = document.getElementById('btnGetState');
+        const initializationResult = document.getElementById('initializationResult');
+
+        const updateValueInput = document.getElementById('updateValue');
+        const concurrencyCountInput = document.getElementById('concurrencyCount');
+        const btnRunTest = document.getElementById('btnRunTest');
+        const testResult = document.getElementById('testResult');
+
+        const user1ValueInput = document.getElementById('user1Value');
+        const btnUser1Update = document.getElementById('btnUser1Update');
+        const user1Result = document.getElementById('user1Result');
+
+        const user2ValueInput = document.getElementById('user2Value');
+        const btnUser2Update = document.getElementById('btnUser2Update');
+        const user2Result = document.getElementById('user2Result');
+
+        function showResult(element, content, type = 'info') {
+            element.textContent = content;
+            element.className = `result ${type}`;
+        }
+
+        function showLoading(element) {
+            showResult(element, 'Loading...', 'loading');
+        }
+
+        function showError(element, error) {
+            showResult(element, error.message || JSON.stringify(error), 'error');
+        }
+
+        function showSuccess(element, result) {
+            showResult(element, JSON.stringify(result, null, 2), 'success');
+        }
+
+        function setButtonStates(enabled) {
+            btnInitialize.disabled = !enabled;
+            btnGetState.disabled = !enabled;
+            btnRunTest.disabled = !enabled;
+            btnUser1Update.disabled = !enabled;
+            btnUser2Update.disabled = !enabled;
+        }
+
+        testConnectionBtn.addEventListener('click', async () => {
+            try {
+                showLoading(connectionResult);
+                
+                const baseUrl = baseUrlInput.value;
+                const jwtSecret = jwtSecretInput.value;
+                
+                restClient = createRESTClient({
+                    baseUrl,
+                    jwtSecret,
+                    rejectUnauthorized: false,
+                });
+                
+                const health = await restClient.health();
+                
+                isConnected = true;
+                showSuccess(connectionResult, health);
+                setButtonStates(true);
+            } catch (error) {
+                showError(connectionResult, error);
+                isConnected = false;
+                setButtonStates(false);
+            }
+        });
+
+        btnInitialize.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(initializationResult, 'Please connect first', 'error');
+                return;
+            }
+
+            try {
+                showLoading(initializationResult);
+                
+                const key = dataKeyInput.value;
+                const value = initialValueInput.value;
+                
+                const result = await restClient.set(key, value);
+                showSuccess(initializationResult, result);
+            } catch (error) {
+                showError(initializationResult, error);
+            }
+        });
+
+        btnGetState.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(initializationResult, 'Please connect first', 'error');
+                return;
+            }
+
+            try {
+                showLoading(initializationResult);
+                
+                const key = dataKeyInput.value;
+                const result = await restClient.get(key);
+                showSuccess(initializationResult, result);
+            } catch (error) {
+                showError(initializationResult, error);
+            }
+        });
+
+        btnRunTest.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(testResult, 'Please connect first', 'error');
+                return;
+            }
+
+            try {
+                showLoading(testResult);
+                
+                const key = dataKeyInput.value;
+                const updateValue = parseInt(updateValueInput.value);
+                const concurrencyCount = parseInt(concurrencyCountInput.value);
+
+                const initialResult = await restClient.set(key, 0);
+                
+                const promises = [];
+                for (let i = 0; i < concurrencyCount; i++) {
+                    promises.push((async (index) => {
+                        try {
+                            const getResult = await restClient.get(key);
+                            const currentValue = parseInt(getResult.value);
+                            const newValue = currentValue + updateValue;
+                            
+                            const casResult = await restClient.cas(key, newValue, getResult.version);
+                            return {
+                                user: `User ${index + 1}`,
+                                currentValue,
+                                newValue,
+                                expectedVersion: getResult.version,
+                                result: casResult,
+                            };
+                        } catch (error) {
+                            return {
+                                user: `User ${index + 1}`,
+                                error: error.message,
+                            };
+                        }
+                    })(i));
+                }
+
+                const results = await Promise.all(promises);
+
+                const finalResult = await restClient.get(key);
+
+                const successfulUpdates = results.filter(r => !r.error && !r.result?.conflict).length;
+                const failedUpdates = results.filter(r => r.error || r.result?.conflict).length;
+
+                const testSummary = {
+                    key,
+                    concurrency: concurrencyCount,
+                    updateValue,
+                    expectedFinalValue: initialResult.version + successfulUpdates * updateValue,
+                    actualFinalValue: finalResult.value,
+                    finalVersion: finalResult.version,
+                    successfulUpdates,
+                    failedUpdates,
+                    results,
+                };
+
+                showSuccess(testResult, testSummary);
+            } catch (error) {
+                showError(testResult, error);
+            }
+        });
+
+        let user1Version = null;
+        btnUser1Update.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(user1Result, 'Please connect first', 'error');
+                return;
+            }
+
+            try {
+                showLoading(user1Result);
+                
+                const key = dataKeyInput.value;
+                const newValue = user1ValueInput.value;
+                
+                if (user1Version === null) {
+                    const getResult = await restClient.get(key);
+                    user1Version = getResult.version;
+                }
+                
+                const result = await restClient.cas(key, newValue, user1Version);
+                
+                if (result.conflict) {
+                    showError(user1Result, result);
+                    user1Version = result.currentVersion;
+                } else {
+                    showSuccess(user1Result, result);
+                    user1Version = result.version;
+                }
+            } catch (error) {
+                showError(user1Result, error);
+            }
+        });
+
+        let user2Version = null;
+        btnUser2Update.addEventListener('click', async () => {
+            if (!isConnected) {
+                showResult(user2Result, 'Please connect first', 'error');
+                return;
+            }
+
+            try {
+                showLoading(user2Result);
+                
+                const key = dataKeyInput.value;
+                const newValue = user2ValueInput.value;
+                
+                if (user2Version === null) {
+                    const getResult = await restClient.get(key);
+                    user2Version = getResult.version;
+                }
+                
+                const result = await restClient.cas(key, newValue, user2Version);
+                
+                if (result.conflict) {
+                    showError(user2Result, result);
+                    user2Version = result.currentVersion;
+                } else {
+                    showSuccess(user2Result, result);
+                    user2Version = result.version;
+                }
+            } catch (error) {
+                showError(user2Result, error);
+            }
+        });
+    </script>
+</body>
+</html>

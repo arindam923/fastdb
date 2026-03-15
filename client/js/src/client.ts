@@ -53,6 +53,8 @@ export interface FlashDBOptions {
   jwtExpiresIn?: number;
   reconnectDelay?: number;
   maxReconnectDelay?: number;
+  tls?: boolean;
+  rejectUnauthorized?: boolean;
 }
 
 export class FlashDB {
@@ -91,6 +93,10 @@ export class FlashDB {
     this.maxReconnectDelay =
       options.maxReconnectDelay ?? 30000;
     this.currentDelay = this.reconnectDelay;
+    // Auto-detect TLS from URL or use options
+    if (options.tls || this.url.startsWith("https://") || this.url.startsWith("wss://")) {
+      this.url = this.url.replace("http://", "https://").replace("ws://", "wss://");
+    }
     this.connect();
   }
 
@@ -176,19 +182,20 @@ export class FlashDB {
       try {
         msg = JSON.parse(e.data);
       } catch {
+        console.warn("[FlashDB] Invalid JSON message received");
         return;
       }
       this.handleMessage(msg);
     };
 
-    this.ws!.onclose = () => {
+    this.ws!.onclose = (event) => {
       this.connected = false;
       for (const cb of this.onDisconnectCbs) {
         cb();
       }
       if (!this.destroyed) {
         console.log(
-          `[FlashDB] disconnected, reconnecting in ${this.currentDelay}ms`,
+          `[FlashDB] disconnected (code: ${event.code}, reason: ${event.reason}), reconnecting in ${this.currentDelay}ms`,
         );
         const reconnect = this.jwtSecret ? () => this.connectWithJwt() : () => this.connect();
         setTimeout(reconnect, this.currentDelay);
@@ -200,7 +207,7 @@ export class FlashDB {
     };
 
     this.ws!.onerror = (err) => {
-      console.error("[FlashDB] ws error", err);
+      console.error("[FlashDB] WebSocket error:", err);
     };
   }
 

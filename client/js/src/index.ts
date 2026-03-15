@@ -2,10 +2,13 @@ export { FlashDB } from "./client";
 export type {
   FlashDBOptions,
   FlashValue,
-  SetResult,
-  ConflictResult,
-  MutationResult,
+  SetResult as FlashDBSetResult,
+  ConflictResult as FlashDBConflictResult,
+  MutationResult as FlashDBMutationResult,
 } from "./client";
+
+export { RESTClient, createRESTClient } from "./rest";
+export type { RESTClientOptions } from "./rest";
 
 export {
   FlashDBProvider,
